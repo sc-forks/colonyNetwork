@@ -201,7 +201,7 @@ contract("One transaction payments", accounts => {
     it("should not allow an admin to specify a non-existent domain", async () => {
       await checkErrorRevert(
         oneTxExtension.makePaymentFundedFromDomain(1, 0, 1, 0, RECIPIENT, token.address, 10, 99, GLOBAL_SKILL_ID, { from: COLONY_ADMIN }),
-        "colony-one-tx-payment-domain-does-not-exist"
+        "colony-network-out-of-range-child-skill-index"
       );
     });
 
@@ -220,7 +220,7 @@ contract("One transaction payments", accounts => {
       // When actually domain 2 in which we are creating the task is skill 5
       await checkErrorRevert(
         oneTxExtension.makePaymentFundedFromDomain(1, 0, 1, 1, RECIPIENT, token.address, 10, 2, GLOBAL_SKILL_ID, { from: COLONY_ADMIN }),
-        "colony-one-tx-payment-bad-child-skill"
+        "colony-one-tx-payment-administration-not-authorized"
       );
     });
   });
