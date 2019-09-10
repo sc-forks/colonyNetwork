@@ -18,10 +18,8 @@
 pragma solidity 0.5.8;
 pragma experimental ABIEncoderV2;
 
-import "./../ColonyAuthority.sol";
 import "./../ColonyDataTypes.sol";
 import "./../IColony.sol";
-import "./../IColonyNetwork.sol";
 
 
 contract OneTxPayment {
@@ -30,11 +28,9 @@ contract OneTxPayment {
   ColonyDataTypes.ColonyRole constant FUNDER = ColonyDataTypes.ColonyRole.Funding;
 
   IColony colony;
-  IColonyNetwork colonyNetwork;
 
   constructor(address _colony) public {
     colony = IColony(_colony);
-    colonyNetwork = IColonyNetwork(colony.getColonyNetwork());
   }
 
   /// @notice Completes a payment in a single transaction

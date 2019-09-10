@@ -127,14 +127,14 @@ contract Colony is ColonyStorage, PatriciaTreeProofs {
     int256 _amount
   ) public stoppable authDomain(_permissionDomainId, _childSkillIndex, _domainId)
   {
-    require(_amount <= 0, "colony-penalty-not-negative");
+    require(_amount <= 0, "colony-penalty-cannot-be-positive");
     IColonyNetwork(colonyNetworkAddress).appendReputationUpdateLog(_user, _amount, domains[_domainId].skillId);
   }
 
   function emitSkillReputationPenalty(uint256 _permissionDomainId, uint256 _skillId, address _user, int256 _amount)
   public stoppable validGlobalSkill(_skillId)
   {
-    require(_amount <= 0, "colony-penalty-not-negative");
+    require(_amount <= 0, "colony-penalty-cannot-be-positive");
     require(isAuthorized(msg.sender, _permissionDomainId, msg.sig), "ds-auth-unauthorized");
     IColonyNetwork(colonyNetworkAddress).appendReputationUpdateLog(_user, _amount, _skillId);
   }
@@ -348,7 +348,22 @@ contract Colony is ColonyStorage, PatriciaTreeProofs {
   }
 
   function finishUpgrade() public always {
-    // Nothing here for v2 to v3, but it needs to be defined.
+    // v3 to v4
+    ColonyAuthority colonyAuthority = ColonyAuthority(address(authority));
+
+    uint8 arbitration = uint8(ColonyRole.Arbitration);
+    bytes4 sig1 = bytes4(keccak256("setExpenditurePayoutModifier(uint256,uint256,uint256,uint256,int256)"));
+    bytes4 sig2 = bytes4(keccak256("setExpenditureClaimDelay(uint256,uint256,uint256,uint256,uint256)"));
+    bytes4 sig3 = bytes4(keccak256("emitDomainReputationPenalty(uint256,uint256,uint256,address,int256)"));
+    bytes4 sig4 = bytes4(keccak256("emitSkillReputationPenalty(uint256,uint256,address,int256)"));
+    colonyAuthority.setRoleCapability(arbitration, address(this), sig1, true);
+    colonyAuthority.setRoleCapability(arbitration, address(this), sig2, true);
+    colonyAuthority.setRoleCapability(arbitration, address(this), sig3, true);
+    colonyAuthority.setRoleCapability(arbitration, address(this), sig4, true);
+
+    uint8 administration = uint8(ColonyRole.Administration);
+    bytes4 sig5 = bytes4(keccak256("makeExpenditure(uint256,uint256,uint256)"));
+    colonyAuthority.setRoleCapability(administration, address(this), sig5, true);
   }
 
   function checkNotAdditionalProtectedVariable(uint256 _slot) public view recovery {

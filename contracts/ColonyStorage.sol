@@ -77,6 +77,7 @@ contract ColonyStorage is CommonStorage, ColonyDataTypes, ColonyNetworkDataTypes
   uint256 expenditureCount; // Storage slot 24
   mapping (uint256 => Expenditure) expenditures; // Storage slot 25
   mapping (uint256 => mapping (uint256 => ExpenditureSlot)) expenditureSlots; // Storage slot 26
+  mapping (uint256 => mapping (uint256 => mapping (address => uint256))) expenditureSlotPayouts; // Storage slot 27
 
   modifier validPayoutAmount(uint256 _amount) {
     require(_amount <= MAX_PAYOUT, "colony-payout-too-large");
@@ -131,7 +132,6 @@ contract ColonyStorage is CommonStorage, ColonyDataTypes, ColonyNetworkDataTypes
   }
 
   modifier expenditureFinalized(uint256 _id) {
-    require(expenditures[_id].status != ExpenditureStatus.Cancelled, "colony-expenditure-cancelled");
     require(expenditures[_id].status == ExpenditureStatus.Finalized, "colony-expenditure-not-finalized");
     _;
   }
@@ -228,14 +228,5 @@ contract ColonyStorage is CommonStorage, ColonyDataTypes, ColonyNetworkDataTypes
 
   function domainExists(uint256 domainId) internal view returns (bool) {
     return domainId > 0 && domainId <= domainCount;
-  }
-
-  // Gas optimization so 0 (default) unpacks to WAD -- so underflows are ok here
-  function packPayoutScalar(uint256 _payoutScalar) internal pure returns(uint256) {
-    return _payoutScalar - WAD;
-  }
-
-  function unpackPayoutScalar(uint256 _payoutScalarPacked) internal pure returns(uint256) {
-    return _payoutScalarPacked + WAD;
   }
 }
