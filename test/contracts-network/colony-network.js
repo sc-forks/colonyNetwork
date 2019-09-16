@@ -342,6 +342,15 @@ contract("Colony Network", accounts => {
       expect(registrarAddress).to.equal(ensRegistry.address);
     });
 
+    it("should be able to create a colony with label in one tx", async () => {
+      const token = await Token.new(...TOKEN_ARGS);
+      const { logs } = await colonyNetwork.createColonyWithLabel(token.address, "test", orbitDBAddress);
+      const { colonyAddress } = logs[0].args;
+
+      const name = await colonyNetwork.lookupRegisteredENSDomain(colonyAddress);
+      expect(name).to.equal("test.colony.joincolony.eth");
+    });
+
     it("should own the root domains", async () => {
       let owner;
       owner = await ensRegistry.owner(rootNode);
