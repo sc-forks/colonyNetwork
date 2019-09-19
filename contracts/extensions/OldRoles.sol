@@ -18,19 +18,13 @@
 pragma solidity 0.5.8;
 pragma experimental ABIEncoderV2;
 
-import "./../ColonyDataTypes.sol";
-import "./../IColony.sol";
+import "../ColonyDataTypes.sol";
+import "./ColonyExtension.sol";
 
 
-contract OldRoles {
+contract OldRoles is ColonyExtension {
   ColonyDataTypes.ColonyRole constant ROOT = ColonyDataTypes.ColonyRole.Root;
   ColonyDataTypes.ColonyRole constant ARCHITECTURE = ColonyDataTypes.ColonyRole.Architecture;
-
-  IColony colony;
-
-  constructor(address _colony) public {
-    colony = IColony(_colony);
-  }
 
   function setFounderRole(address _user) public {
     require(colony.hasUserRole(msg.sender, 1, ROOT), "old-roles-caller-not-authorized");

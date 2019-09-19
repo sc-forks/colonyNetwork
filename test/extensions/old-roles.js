@@ -2,7 +2,7 @@
 
 import chai from "chai";
 import bnChai from "bn-chai";
-import { ethers } from "ethers";
+import { soliditySha3 } from "web3-utils";
 
 import {
   WAD,
@@ -15,21 +15,24 @@ import {
   SPECIFICATION_HASH
 } from "../../helpers/constants";
 import { checkErrorRevert } from "../../helpers/test-helper";
+import { setupEtherRouter } from "../../helpers/upgradable-contracts";
 import { setupColonyNetwork, setupMetaColonyWithLockedCLNYToken, setupRandomColony, fundColonyWithTokens } from "../../helpers/test-data-generator";
 
 const { expect } = chai;
 chai.use(bnChai(web3.utils.BN));
 
-const OldRolesFactory = artifacts.require("OldRolesFactory");
+const ExtensionManager = artifacts.require("ExtensionManager");
 const OldRoles = artifacts.require("OldRoles");
+const Resolver = artifacts.require("Resolver");
 
 contract("Old Roles", accounts => {
   let colony;
   let token;
   let colonyNetwork;
+  let extensionManager;
   let oldRolesExtension;
-  let hasRole;
-  let oldRolesFactory;
+
+  const OLD_ROLES = soliditySha3("OldRoles");
 
   const FOUNDER = accounts[0];
   const USER1 = accounts[1];
@@ -37,57 +40,34 @@ contract("Old Roles", accounts => {
 
   before(async () => {
     colonyNetwork = await setupColonyNetwork();
-    await setupMetaColonyWithLockedCLNYToken(colonyNetwork);
+    const { metaColony } = await setupMetaColonyWithLockedCLNYToken(colonyNetwork);
+
+    extensionManager = await ExtensionManager.new(metaColony.address);
+    const oldRoles = await OldRoles.new();
+    const oldRolesResolver = await Resolver.new();
+    await setupEtherRouter("OldRoles", { OldRoles: oldRoles.address }, oldRolesResolver);
+    await extensionManager.addExtension(OLD_ROLES, 0, oldRolesResolver.address, [ROOT_ROLE]);
+
     await colonyNetwork.initialiseReputationMining();
     await colonyNetwork.startNextCycle();
-    oldRolesFactory = await OldRolesFactory.new();
   });
 
   beforeEach(async () => {
     ({ colony, token } = await setupRandomColony(colonyNetwork));
     await fundColonyWithTokens(colony, token, INITIAL_FUNDING);
-    await oldRolesFactory.deployExtension(colony.address);
-    const oldRolesExtensionAddress = await oldRolesFactory.deployedExtensions(colony.address);
-    oldRolesExtension = await OldRoles.at(oldRolesExtensionAddress);
-    await colony.setRootRole(oldRolesExtension.address, true);
+
+    await colony.setRootRole(extensionManager.address, true);
+    await extensionManager.installExtension(OLD_ROLES, 0, colony.address, 0, 1, 0, 1);
+
+    const extensionAddress = await extensionManager.getExtension(OLD_ROLES, 0, colony.address, 1);
+    oldRolesExtension = await OldRoles.at(extensionAddress);
   });
 
   describe("old roles", async () => {
-    it("does not allow an extension to be redeployed", async () => {
-      await checkErrorRevert(oldRolesFactory.deployExtension(colony.address), "colony-extension-already-deployed");
-    });
-
-    it("does not allow a user without root permission to deploy the extension", async () => {
-      await checkErrorRevert(oldRolesFactory.deployExtension(colony.address, { from: USER1 }), "colony-extension-user-not-root");
-    });
-
-    it("does not allow a user without root permission to remove the extension", async () => {
-      await checkErrorRevert(oldRolesFactory.removeExtension(colony.address, { from: USER1 }), "colony-extension-user-not-root");
-    });
-
-    it("does allow a user with root permission to remove the extension", async () => {
-      const tx = await oldRolesFactory.removeExtension(colony.address);
-      const extensionAddress = await oldRolesFactory.deployedExtensions(colony.address);
-      assert.equal(extensionAddress, ethers.constants.AddressZero);
-      const event = tx.logs[0];
-      assert.equal(event.args[0], "OldRoles");
-      assert.equal(event.args[1], colony.address);
-    });
-
-    it("emits the expected event when extension added", async () => {
-      ({ colony, token } = await setupRandomColony(colonyNetwork));
-      const tx = await oldRolesFactory.deployExtension(colony.address);
-      const event = tx.logs[0];
-      assert.equal(event.args[0], "OldRoles");
-      assert.equal(event.args[1], colony.address);
-      const oldRolesExtensionAddress = await oldRolesFactory.deployedExtensions(colony.address);
-      assert.equal(event.args[2], oldRolesExtensionAddress);
-    });
-
     it("should be able to transfer the 'founder' role", async () => {
       await oldRolesExtension.setFounderRole(USER1);
 
-      hasRole = await colony.hasUserRole(USER1, 1, FUNDING_ROLE);
+      let hasRole = await colony.hasUserRole(USER1, 1, FUNDING_ROLE);
       expect(hasRole).to.be.true;
       hasRole = await colony.hasUserRole(USER1, 1, ADMINISTRATION_ROLE);
       expect(hasRole).to.be.true;
@@ -113,7 +93,7 @@ contract("Old Roles", accounts => {
     it("should be able to assign 'admin' roles", async () => {
       await oldRolesExtension.setAdminRole(USER1, true);
 
-      hasRole = await colony.hasUserRole(USER1, 1, FUNDING_ROLE);
+      let hasRole = await colony.hasUserRole(USER1, 1, FUNDING_ROLE);
       expect(hasRole).to.be.true;
       hasRole = await colony.hasUserRole(USER1, 1, ADMINISTRATION_ROLE);
       expect(hasRole).to.be.true;
